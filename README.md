@@ -10,3 +10,5 @@ To fix a broken screencapture on an OCLP patched MacBookPro8,1 disable SIP at th
 ```
 
 The script replaces `/usr/sbin/screencapture` with the binary located in the same folder as the script.
+Reapplying OCLP root patches in the future would likely overwrite the fix.
+Run the script as often as need.

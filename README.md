@@ -3,7 +3,7 @@
 
 See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) why this script has been created.
 
-To fix a broken screencapture on an OCLP patched MacBookPro8,1 disable SIP at the OCLP and after that simply run 
+To fix a broken screencapture on an OCLP patched MacBookPro8,1 disable SIP at the OCLP, build and install OpenCore on the internal drive and after that simply run 
 
 ```
 % sudo ./screencapture-fix.sh

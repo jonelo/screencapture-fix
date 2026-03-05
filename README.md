@@ -4,6 +4,15 @@
 
 See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) why this script has been created.
 
+## Prerequisites
+
+- macOS Sequoia installed on a a MacBook Pro (model 8,1) using OCLP 2.4.1
+- A clean `screencapture` binary from macOS Squoia 15.7.1
+- this script
+
+> [!TIP]
+> When booted into a macOS installer or Recovery Mode, you can access the screencapture binary via the Terminal, often located at /Volumes/Macintosh\ HD/usr/sbin/screencapture if the main drive is mounted, or by copying it from a running system.
+
 ## Usage
 
 > [!CAUTION]

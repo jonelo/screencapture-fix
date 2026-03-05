@@ -1,7 +1,10 @@
 # screencapture-fix
 
+## Why?
 
 See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) why this script has been created.
+
+## Usage
 
 > [!CAUTION]
 > Use at your own risk.

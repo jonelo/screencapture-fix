@@ -8,6 +8,7 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 
 - macOS Sequoia installed on a a MacBook Pro (model 8,1) using OCLP 2.4.1
 - A clean `screencapture` binary from macOS Squoia 15.7.1
+- SIP disabled (use OCLP to disable it)
 - this script
 
 > [!TIP]

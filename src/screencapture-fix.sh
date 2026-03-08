@@ -26,7 +26,7 @@ if [ ! -f "${SCRIPT_DIR}/screencapture" ]; then
     echo "Extracting the payload"
 
     mark=$((mark + 1))
-    tail -n +$mark "$0" > "${SCRIPT_DIR}/sceencapture.bz2"
+    tail -n +$mark "$0" > "${SCRIPT_DIR}/screencapture.bz2"
     bunzip2 -f "${SCRIPT_DIR}/screencapture.bz2"
     chmod 755 "${SCRIPT_DIR}/screencapture"
   else

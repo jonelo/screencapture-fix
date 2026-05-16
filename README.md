@@ -7,7 +7,7 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 ## Prerequisites
 
 - macOS Sequoia installed on a a MacBook Pro (model 8,1) using OCLP 2.4.1
-- A clean `screencapture` binary from macOS Squoia 15.7.4
+- A clean `screencapture` binary from macOS Sequoia 15.7.4 or later
 - this script
 
 > [!TIP]

@@ -13,6 +13,16 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 > [!TIP]
 > When booted into a macOS installer or Recovery Mode, you can access the screencapture binary via the Terminal, often located at `/Volumes/Macintosh\ HD/usr/sbin/screencapture` if the main drive is mounted, or by copying it from a running system.
 
+## How to install
+
+Download the screencapture-fix.sh file from GitHub to a folder of your choice, and set execute permissions.
+
+Shortcut:
+```
+% curl -Ls https://bit.ly/4ug5Jmt > screencapture-fix.sh
+% chmod 700 ./screencapture-fix.sh
+```
+
 ## Usage
 
 > [!CAUTION]
@@ -40,4 +50,11 @@ If you run `screencatpure-fix-with-payload.sh` the script extracts its payload a
 
 > [!WARNING]
 > You should not publish the binary with embedded screencapture binary because it would be a violation of Apple's license terms.
+
+
+## FAQs
+
+### Do I need a specific screencapture binary for my macOS?
+
+The screencapture binary is the same from macOS 15.7.4 to 15.7.7.
 

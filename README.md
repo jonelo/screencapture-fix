@@ -2,6 +2,7 @@
 
 ## Why?
 
+This script helps you to fix a broken screencapture on an OCLP patched MacBookPro8,1.
 See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) why this script has been created.
 
 ## Prerequisites
@@ -15,7 +16,7 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 
 ## How to install
 
-Download the screencapture-fix.sh file from GitHub to a folder of your choice, and set execute permissions.
+Download the `screencapture-fix.sh` file from GitHub to a folder of your choice.
 
 Shortcut:
 ```

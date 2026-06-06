@@ -20,7 +20,6 @@ Download the screencapture-fix.sh file from GitHub to a folder of your choice, a
 Shortcut:
 ```
 % curl -Ls https://bit.ly/screencapture-fix > screencapture-fix.sh
-% chmod 755 ./screencapture-fix.sh
 ```
 
 ## Usage

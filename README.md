@@ -2,13 +2,13 @@
 
 ## Why?
 
-This script helps you to fix a broken screencapture on an OCLP patched MacBookPro8,1.
-See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) why this script has been created.
+This script helps you fix a broken screencapture on an OCLP-patched MacBookPro8,1.
+See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) for why this script was created.
 
 ## Prerequisites
 
-- macOS Sequoia installed on a a MacBook Pro (model 8,1) using OCLP 2.4.1
-- A clean `screencapture` binary from macOS Sequoia 15.7.4 or later
+- macOS Sequoia installed on a MacBook Pro (model 8,1) using OCLP 2.4.1
+- a clean `screencapture` binary from macOS Sequoia 15.7.4 or later
 - this script
 
 > [!TIP]
@@ -36,8 +36,8 @@ To fix a broken screencapture on an OCLP patched MacBookPro8,1 simply run
 ```
 
 The script replaces `/usr/sbin/screencapture` with the binary located in the same folder as the script.
-Reapplying OCLP root patches in the future would likely overwrite the fix.
-Run the script as often as need.
+Reapplying OCLP root patches in the future will likely overwrite the fix.
+Run the script as often as needed.
 
 ## Advanced Usage
 
@@ -46,10 +46,10 @@ You can also append the screencapture binary to the script as its payload to mak
 ```
 % cat ./screencapture-fix.sh ./screencapture > ./screencapture-fix-with-payload.sh
 ```
-If you run `screencatpure-fix-with-payload.sh` the script extracts its payload and saves screencapture if if is not found in the script's working directory.
+If you run `screencapture-fix-with-payload.sh`, the script extracts its payload and saves `screencapture` if it is not found in the script's working directory.
 
 > [!WARNING]
-> You should not publish the binary with embedded screencapture binary because it would be a violation of Apple's license terms.
+> You should not publish the script with an embedded `screencapture` binary because that would violate Apple's license terms.
 
 
 ## FAQs

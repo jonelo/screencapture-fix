@@ -19,7 +19,7 @@ if [ ! -f "${SCRIPT_DIR}/screencapture" ]; then
   mark="${mark%%:*}"
 
   if [ -z "$mark" ]; then
-    echo "screencapture binary is also not appended to the script."
+    echo "The screencapture binary is also not appended to the script."
     exit 1
   fi
 
@@ -35,7 +35,7 @@ if [ ! -f "${SCRIPT_DIR}/screencapture" ]; then
     bunzip2 -f "${SCRIPT_DIR}/screencapture.bz2"
     chmod 755 "${SCRIPT_DIR}/screencapture"
   else
-    echo "screencapture binary is also not appended to the script."
+    echo "The screencapture binary is also not appended to the script."
     exit 1
   fi
 fi

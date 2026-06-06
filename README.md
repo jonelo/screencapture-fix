@@ -57,3 +57,6 @@ If you run `screencatpure-fix-with-payload.sh` the script extracts its payload a
 
 The screencapture binary is the same from macOS 15.7.4 to 15.7.7.
 
+### Does the script support multiple boot volumes?
+
+Yes, just boot from the volume that you want to patch. The script identifies the booted one.

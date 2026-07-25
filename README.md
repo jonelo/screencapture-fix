@@ -2,12 +2,12 @@
 
 ## Why?
 
-This script helps you fix a broken screencapture on an OCLP-patched MacBookPro8,1.
+This script helps you fix a broken screencapture on an OCLP-patched MacBookPro8,1 (and probably some other systems around 2011 as well).
 See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-screencapture-on-an-OCLP-patched-macbookpro81.html) for why this script was created.
 
 ## Prerequisites
 
-- macOS Sequoia installed on a MacBook Pro (model 8,1) using OCLP 2.4.1
+- macOS Sequoia (15.7.4 - 15.7.7) installed on a MacBook Pro (Model ID MacBookPro8,1) using OCLP 2.4.1
 - a clean `screencapture` binary from macOS Sequoia 15.7.4 or later
 - this script
 

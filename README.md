@@ -7,7 +7,7 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 
 ## Prerequisites
 
-- macOS Sequoia (15.7.4 - 15.7.7) installed on a MacBook Pro (Model ID MacBookPro8,1) using OCLP 2.4.1
+- macOS Sequoia (15.7.4 - 15.8) installed on a MacBook Pro (Model ID MacBookPro8,1) using OCLP 2.4.1 or OCLP 2.5
 - a clean `screencapture` binary from macOS Sequoia 15.7.4 or later
 - this script
 
@@ -57,6 +57,14 @@ If you run `screencapture-fix-with-payload.sh`, the script extracts its payload 
 ### Do I need a specific screencapture binary for my macOS?
 
 The screencapture binary is the same from macOS 15.7.4 to 15.7.7.
+```
+e668501ed8406aebcc3572a9b349553a27d429d0acfe26a5b364c2290ea8013d  /usr/sbin/screencapture
+```
+
+The screencapture binary from macOS 15.8 is different.
+```
+15f8ae56fbbe2e51c8ccfd04406e47fc619bd78ec364489585757b2b09471e1b  /usr/sbin/screencapture
+```
 
 ### Does the script support multiple boot volumes?
 

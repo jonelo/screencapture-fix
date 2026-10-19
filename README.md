@@ -15,7 +15,11 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 ## How to get a clean screencapture binary
 
 The `screencapture` binary on the affected Mac itself is the broken one, so you can't take it from there,
-not even when booted into Recovery Mode. You need a second Mac instead.
+not even when booted into Recovery Mode. There are two other ways to get a clean one:
+[copy it from another Mac](#copy-it-from-another-mac), or let the script
+[extract it from a macOS Sequoia installer](#extract-it-from-a-macos-sequoia-installer), e.g. from the USB stick that OCLP has created.
+
+### Copy it from another Mac
 
 A clean `screencapture` is a universal binary (`x86_64 arm64e`), while the broken one contains `x86_64` only.
 Because of that, *any* Mac running macOS Sequoia 15.7.4 or later will do, no matter if it has an Intel or an Apple Silicon CPU,
@@ -45,6 +49,34 @@ On the second Mac, open the Terminal and
    Store it next to `screencapture-fix.sh` (see below), and make sure it is named exactly `screencapture`:
    don't rename it, and don't leave it zipped.
 
+### Extract it from a macOS Sequoia installer
+
+If you have installed Sequoia with OCLP, you probably still have the USB stick with the macOS installer that OCLP has created.
+The installer contains the entire system, including a clean `screencapture`.
+With the option `--get`, the script extracts the binary from the installer and saves it next to the script.
+
+1. [install the script](#how-to-install)
+2. plug in the USB stick, it shows up as `/Volumes/Install macOS Sequoia`
+3. run
+   ```
+   % ./screencapture-fix.sh --get "/Volumes/Install macOS Sequoia"
+   Installer     : /Volumes/Install macOS Sequoia/Install macOS Sequoia.app
+   Mounting SharedSupport.dmg (read-only)
+   Installer for : macOS 15.8 (24H23)
+   Searching for usr/sbin/screencapture, this can take several minutes ...
+   Searching payload.036
+   Found usr/sbin/screencapture in payload.036
+   Architectures : x86_64 arm64e
+   ...
+   Check passed. Run the script with sudo and without any option to apply the fix.
+   ```
+
+Instead of the USB stick you can also pass an `Install macOS Sequoia.app`, e.g. one that has been downloaded to `/Applications`.
+The installer is mounted read-only, so it remains unchanged. Root is not required, and `--get` doesn't patch anything.
+It just extracts the binary and checks it the same way as `--check` does.
+
+Use an installer of the same macOS version as the Mac that you want to fix. The script warns you if the versions differ.
+
 ## How to install
 
 Create a folder of your choice, and download the `screencapture-fix.sh` file from GitHub into it.
@@ -57,7 +89,7 @@ Shortcut:
 % chmod +x screencapture-fix.sh
 ```
 
-Then copy the clean `screencapture` binary into the same folder:
+Then copy the clean `screencapture` binary into the same folder, or let the script [extract it from a macOS Sequoia installer](#extract-it-from-a-macos-sequoia-installer):
 ```
 % ls
 screencapture		screencapture-fix.sh
@@ -142,6 +174,16 @@ Take it from another Mac, see [How to get a clean screencapture binary](#how-to-
 ### "Extracting the payload failed."
 
 The payload appended to the script is truncated or corrupted. Create the single file again as described in [Advanced Usage](#advanced-usage).
+
+### "Expected exactly one "Install macOS *.app" in ..."
+
+`--get` expects either the folder that contains the installer (e.g. the root of the USB stick) or the installer app itself.
+Check the name of the USB stick in the Finder or with `ls /Volumes`.
+
+### "... SharedSupport.dmg not found."
+
+The installer app is an install stub only, which downloads the actual installer when it runs.
+Use the USB stick created by OCLP, or a full installer instead.
 
 ### "Mounting /dev/... failed."
 

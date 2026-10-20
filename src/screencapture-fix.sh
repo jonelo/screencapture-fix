@@ -8,16 +8,66 @@
 PATH="/sbin:/usr/sbin:/bin:/usr/bin"
 
 PROJECT_URL="https://github.com/jonelo/screencapture-fix"
-HOWTO_URL="${PROJECT_URL}#how-to-get-a-clean-screencapture-binary"
 
 # Inside a zsh function $0 is the name of the function, so keep the script's path
 SCRIPT="$0"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# The clean binary next to the script, --get stores the extracted binary there
 BINARY="${SCRIPT_DIR}/screencapture"
-# The file that is validated, by default the clean binary next to the script,
-# or another one given by --check <path>, which is diagnosed only (CHECK_PATH_GIVEN=1)
-CHECK_FILE="${BINARY}"
-CHECK_PATH_GIVEN=0
+# The binary that is broken on an OCLP-patched MacBookPro8,1
+INSTALLED="/usr/sbin/screencapture"
+OS_VERSION="$(sw_vers -productVersion)"
+OS_BUILD="$(sw_vers -buildVersion)"
+
+# The binary that is validated and installed, see select_binary
+CHECK_FILE=""
+# The action given by an option: install, check or get
+MODE=""
+# The binary given by -p <file>
+PAYLOAD_FILE=""
+# 1 if --force has been given
+FORCE=0
+# The temporary folder that holds the payload extracted from the script
+PAYLOAD_TMP=""
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+# All output is kept within 79 columns, so that nothing wraps in a terminal
+# with the default width of 80 columns. That is why paths, which can be of any
+# length, are printed on separate lines.
+
+# Prints the lines $2... with the prefix $1 in front of the first line and
+# indents the following lines by the length of the prefix.
+# printf "%*s" prints the empty string padded to the given width.
+message() {
+  local prefix="$1" line
+  shift
+  printf "%s%s\n" "${prefix}" "$1"
+  shift
+  for line in "$@"; do
+    printf "%*s%s\n" ${#prefix} "" "${line}"
+  done
+}
+
+error() {
+  message "Error: " "$@"
+}
+
+warning() {
+  message "Warning: " "$@"
+}
+
+note() {
+  message "Note: " "$@"
+}
+
+# Prints a status line such as "SHA-256   : <checksum>", the label $1 is
+# padded to 9 characters. Further lines $3... are aligned with the value $2.
+status() {
+  message "$(printf "%-9s : " "$1")" "${@:2}"
+}
 
 # ---------------------------------------------------------------------------
 # Help
@@ -32,28 +82,31 @@ with a clean binary.
 Usage: ${SCRIPT:t} [options]
 
 Options:
-  (none)              replace /usr/sbin/screencapture by the clean
-                      screencapture binary next to the script and reboot
-                      (requires sudo)
-  -c, --check [path]  validate the clean screencapture binary next to the
-                      script, or the one at path (a file or a folder that
-                      contains it) to find out whether it is broken,
-                      don't change anything
-  -g, --get <dir>     extract screencapture from a macOS installer, e.g. from
-                      the USB stick created by OCLP, and validate it,
-                      don't change anything
-  -f, --force         install the clean binary even if it is installed already
-  -h, --help          show this help
+  (none)                show this help and the status of the embedded payload
+  -i, --install         replace /usr/sbin/screencapture by the clean binary
+                        and reboot (requires sudo)
+  -c, --check           find out whether /usr/sbin/screencapture is broken,
+                        with -p whether <file> is a clean binary,
+                        don't change anything
+  -g, --get <dir>       extract screencapture from a macOS installer, e.g.
+                        from the USB stick created by OCLP, to the folder of
+                        the script and validate it, don't change anything else
+  -p, --payload <file>  use <file> as the clean binary instead of the payload
+                        embedded in the script
+  -f, --force           install the clean binary even if it is installed
+                        already
+  -h, --help            show this help
 
-The clean binary is expected next to the script, named "screencapture",
-or appended to the script as its payload.
+The clean binary is taken from -p <file>, otherwise from the payload
+embedded in the script, otherwise from the file "screencapture" next to
+the script.
 
 Examples:
-  ./${SCRIPT:t} --get "/Volumes/Install macOS Sequoia"
   ./${SCRIPT:t} --check
-  ./${SCRIPT:t} --check /usr/sbin
-  sudo ./${SCRIPT:t}
-  sudo ./${SCRIPT:t} --force
+  ./${SCRIPT:t} --get "/Volumes/Install macOS Sequoia"
+  ./${SCRIPT:t} --check -p ~/Desktop/screencapture
+  sudo ./${SCRIPT:t} --install
+  sudo ./${SCRIPT:t} --install -p ~/Desktop/screencapture
 
 More information: ${PROJECT_URL}
 EOF
@@ -62,11 +115,14 @@ EOF
 how_to_get_binary() {
   local candidate
 
-  printf "Copy a clean screencapture binary from another Mac running macOS Sequoia 15.7.4 or later\n"
-  printf "to %s (the file must be named exactly \"screencapture\"),\n" "${BINARY}"
-  printf "or extract it from a macOS Sequoia installer, e.g. from a USB stick created by OCLP:\n"
-  printf "  %s --get \"/Volumes/Install macOS Sequoia\"\n" "${SCRIPT}"
-  printf "Step-by-step instructions: %s\n" "${HOWTO_URL}"
+  echo "A clean screencapture binary from macOS Sequoia 15.7.4 or later is required."
+  echo "Copy it from another Mac to"
+  echo "  ${BINARY}"
+  echo "or pass it with -p <file>, or extract it from a macOS Sequoia installer,"
+  echo "e.g. from the USB stick created by OCLP:"
+  echo "  ${SCRIPT} --get \"/Volumes/Install macOS Sequoia\""
+  echo "Step-by-step instructions: see \"How to get a clean screencapture binary\""
+  echo "at ${PROJECT_URL}"
 
   # List files whose names start with "screencapture" (e.g. "screencapture copy"
   # or "screencapture.zip") to reveal naming mistakes. The zsh glob qualifier (N)
@@ -75,13 +131,25 @@ how_to_get_binary() {
   # named but unsuitable binary are skipped. ${candidate:t} is the file name only.
   for candidate in "${SCRIPT_DIR}"/screencapture*(N.); do
     if [[ "${candidate:t}" != screencapture-fix* && "${candidate:t}" != screencapture ]]; then
-      printf "Found \"%s\" - rename it to \"screencapture\" if it is the clean binary.\n" "${candidate:t}"
+      note "Found \"${candidate:t}\" next to the script." \
+           "Rename it to \"screencapture\" if it is the clean binary."
     fi
   done
 }
 
+# Prints how to install the binary that has passed the check.
+# $1 is the file for -p, without $1 the binary is selected by --install itself.
+install_hint() {
+  echo "Install it with:"
+  if [ -n "$1" ]; then
+    echo "  sudo ${SCRIPT} --install -p $1"
+  else
+    echo "  sudo ${SCRIPT} --install"
+  fi
+}
+
 # ---------------------------------------------------------------------------
-# Getting the screencapture binary
+# Getting the screencapture binary from a macOS installer
 # ---------------------------------------------------------------------------
 
 # Sets INSTALLER to the macOS installer app in $1.
@@ -99,11 +167,12 @@ find_installer() {
     installers=( "${dir}"/Install\ macOS*.app(N/) )
   fi
   if [ ${#installers} -ne 1 ]; then
-    printf "Error: Expected exactly one \"Install macOS *.app\" in %s, but found %d.\n" "$1" ${#installers}
+    error "Expected exactly one \"Install macOS *.app\", but found ${#installers} in" \
+          "$1"
     exit 1
   fi
   INSTALLER="${installers[1]}"
-  echo "Installer     : ${INSTALLER}"
+  status "Installer" "${INSTALLER}"
 }
 
 # Mounts the SharedSupport.dmg of the INSTALLER to GET_MOUNT.
@@ -113,14 +182,16 @@ mount_shared_support() {
   local sharedSupport="${INSTALLER}/Contents/SharedSupport/SharedSupport.dmg"
 
   if [ ! -f "${sharedSupport}" ]; then
-    printf "Error: %s not found.\n" "${sharedSupport}"
-    echo "This is either an install stub only or an installer that is too old."
+    error "Not found:" \
+          "${sharedSupport}" \
+          "This is either an install stub only or an installer that is too old."
     exit 1
   fi
 
   echo "Mounting ${sharedSupport:t} (read-only)"
   if ! hdiutil attach "${sharedSupport}" -readonly -noverify -nobrowse -mountpoint "${GET_MOUNT}" &> /dev/null; then
-    printf "Error: Could not mount %s.\n" "${sharedSupport}"
+    error "Could not mount" \
+          "${sharedSupport}"
     exit 1
   fi
 }
@@ -138,7 +209,8 @@ find_asset_zip() {
   fi
   zips=( "${assetDir}"/*.zip(N.) )
   if [ ${#zips} -ne 1 ]; then
-    printf "Error: Expected exactly one zip archive in %s, but found %d.\n" "${assetDir}" ${#zips}
+    error "Expected exactly one zip archive, but found ${#zips} in" \
+          "${assetDir}"
     exit 1
   fi
   ZIP="${zips[1]}"
@@ -154,13 +226,14 @@ print_installer_version() {
   installerVersion="$(plutil -extract ProductVersion raw -o - - <<< "${plist}" 2> /dev/null)"
   installerBuild="$(plutil -extract ProductBuildVersion raw -o - - <<< "${plist}" 2> /dev/null)"
   if [ -z "${installerVersion}" ]; then
-    printf "Error: No SystemVersion.plist found in %s.\n" "${ZIP}"
+    error "No SystemVersion.plist found in" \
+          "${ZIP}"
     exit 1
   fi
-  echo "Installer for : macOS ${installerVersion} (${installerBuild})"
-  if [[ "${installerVersion}" != "$(sw_vers -productVersion)" || "${installerBuild}" != "$(sw_vers -buildVersion)" ]]; then
-    echo "Warning: This Mac runs macOS $(sw_vers -productVersion) ($(sw_vers -buildVersion))."
-    echo "         Use an installer of the same version as the Mac that you want to fix."
+  status "Release" "macOS ${installerVersion} (${installerBuild})"
+  if [[ "${installerVersion}" != "${OS_VERSION}" || "${installerBuild}" != "${OS_BUILD}" ]]; then
+    warning "This Mac runs macOS ${OS_VERSION} (${OS_BUILD})." \
+            "Use an installer of the same version as the Mac that you want to fix."
   fi
 }
 
@@ -185,11 +258,12 @@ extract_from_payload() {
   printf "\n"
 
   if [ ! -f "${GET_TMP}/usr/sbin/screencapture" ]; then
-    printf "Error: usr/sbin/screencapture not found in %s.\n" "${ZIP}"
+    error "usr/sbin/screencapture not found in" \
+          "${ZIP}"
     exit 1
   fi
   CHUNK="${chunk:t}"
-  printf "Found usr/sbin/screencapture in %s\n" "${CHUNK}"
+  status "Found" "usr/sbin/screencapture in ${CHUNK}"
 }
 
 # Removes the mount point and the extracted file of get_from_installer.
@@ -206,7 +280,9 @@ get_from_installer() {
   setopt localoptions localtraps
 
   if [ -e "${BINARY}" ]; then
-    printf "Error: %s exists already. Remove it first to get it from the installer.\n" "${BINARY}"
+    error "The screencapture binary exists already:" \
+          "${BINARY}" \
+          "Remove it first to get it from the installer."
     exit 1
   fi
 
@@ -229,76 +305,90 @@ get_from_installer() {
   # -X skips extended attributes. chmod is required, because the file
   # extracted by aa can lack the executable bits (seen when not run as root).
   if ! cp -X "${GET_TMP}/usr/sbin/screencapture" "${BINARY}"; then
-    printf "Error: Could not copy the screencapture binary to %s.\n" "${BINARY}"
+    error "Could not copy the screencapture binary to" \
+          "${BINARY}"
     exit 1
   fi
   chmod 755 "${BINARY}"
 }
 
-# Extracts the screencapture binary appended to the script to BINARY.
-extract_appended_payload() {
-  local mark lines
+# ---------------------------------------------------------------------------
+# Selecting the screencapture binary
+# ---------------------------------------------------------------------------
 
-  # Is there a screencapture binary appended to the script?
-  mark="$(grep -a -n "^# --payload_start--" "${SCRIPT}")"
-  mark="${mark%%:*}"
+# Sets PAYLOAD_MARK to the line number of the payload mark and succeeds,
+# if a payload is appended to the script, i.e. if there are lines after the mark.
+has_payload() {
+  local lines
 
-  if [ -z "$mark" ]; then
-    echo "The screencapture binary is also not appended to the script."
-    how_to_get_binary
-    exit 1
+  PAYLOAD_MARK="$(grep -a -n "^# --payload_start--" "${SCRIPT}")"
+  PAYLOAD_MARK="${PAYLOAD_MARK%%:*}"
+  if [ -z "${PAYLOAD_MARK}" ]; then
+    return 1
   fi
 
   lines="$(wc -l "${SCRIPT}")"
   lines="${lines% *}"
   lines="${lines##* }"
+  [ ${lines} -gt ${PAYLOAD_MARK} ]
+}
 
-  if [ $lines -le $mark ]; then
-    echo "The screencapture binary is also not appended to the script."
-    how_to_get_binary
-    exit 1
+# Removes the payload extracted by extract_payload.
+cleanup_payload() {
+  if [ -n "${PAYLOAD_TMP}" ]; then
+    rm -rf "${PAYLOAD_TMP}"
   fi
+}
 
-  echo "Extracting the payload"
-  mark=$((mark + 1))
-  tail -n +$mark "${SCRIPT}" > "${BINARY}.bz2"
+# Extracts the payload appended to the script to a temporary folder
+# and sets PAYLOAD_BINARY. It is removed by cleanup_payload on exit.
+extract_payload() {
+  PAYLOAD_TMP="$(mktemp -d -t screencapture-fix)"
+  PAYLOAD_BINARY="${PAYLOAD_TMP}/screencapture"
+
+  tail -n +$((PAYLOAD_MARK + 1)) "${SCRIPT}" > "${PAYLOAD_BINARY}.bz2"
   # bunzip2 replaces screencapture.bz2 by screencapture. Because of -f an
   # uncompressed payload is passed through unchanged, but a truncated or
   # corrupted bzip2 payload makes bunzip2 fail.
-  if ! bunzip2 -f "${BINARY}.bz2"; then
-    echo "Error: Extracting the payload failed. See \"Advanced Usage\" in the README."
-    rm -f "${BINARY}.bz2" "${BINARY}"
+  if ! bunzip2 -f "${PAYLOAD_BINARY}.bz2" 2> /dev/null; then
+    error "Extracting the payload failed. See \"Advanced Usage\" in the README."
     exit 1
   fi
-  chmod 755 "${BINARY}"
+  chmod 755 "${PAYLOAD_BINARY}"
 }
 
-# Sets CHECK_FILE to the screencapture binary given by --check <path>.
-# $1 is either the binary itself or a folder that contains it, e.g. /usr/sbin.
-resolve_check_path() {
-  if [ -d "$1" ]; then
-    CHECK_FILE="${1%/}/screencapture"
+# Sets CHECK_FILE to the clean binary that is going to be installed:
+# the one given by -p <file>, otherwise the payload, otherwise BINARY.
+select_binary() {
+  if [ -n "${PAYLOAD_FILE}" ]; then
+    use_payload_file
+  elif has_payload; then
+    extract_payload
+    CHECK_FILE="${PAYLOAD_BINARY}"
+    status "Binary" "the payload embedded in the script"
+  elif [ -f "${BINARY}" ]; then
+    CHECK_FILE="${BINARY}"
+    status "Binary" "${CHECK_FILE}"
   else
-    CHECK_FILE="$1"
-  fi
-  if [ ! -f "${CHECK_FILE}" ]; then
-    printf "Error: %s not found.\n" "${CHECK_FILE}"
+    error "No clean screencapture binary found."
+    how_to_get_binary
     exit 1
   fi
-  CHECK_PATH_GIVEN=1
-  echo "Checking      : ${CHECK_FILE}"
 }
 
-# Makes sure that BINARY exists, if necessary from the payload of the script.
-locate_binary() {
-  if [ ! -f "${BINARY}" ]; then
-    printf "screencapture binary not found in %s\n" "${SCRIPT_DIR}"
-    extract_appended_payload
+# Sets CHECK_FILE to the binary given by -p <file>.
+use_payload_file() {
+  if [ ! -f "${PAYLOAD_FILE}" ]; then
+    error "File not found:" \
+          "${PAYLOAD_FILE}"
+    exit 1
   fi
+  CHECK_FILE="${PAYLOAD_FILE}"
+  status "Binary" "${CHECK_FILE}"
 }
 
 # ---------------------------------------------------------------------------
-# Validating the screencapture binary before the system volume is touched
+# Validating a screencapture binary
 # ---------------------------------------------------------------------------
 
 # A clean screencapture from macOS Sequoia is a universal binary, while the
@@ -316,6 +406,7 @@ locate_binary() {
 # the regular expression, and ${line##* } is the last word of the line.
 # ${(j: :)list} joins the list with blanks, e.g. "x86_64 arm64e", and
 # the blanks around $archs let us match whole words only.
+# Fails if CHECK_FILE is not a clean binary.
 check_architectures() {
   local line archs
   local -a list
@@ -328,83 +419,92 @@ check_architectures() {
     fi
   done
   archs="${(j: :)list}"
-  echo "Architectures : ${archs:-none}"
+  status "Archs" "${archs:-none}"
   if [[ " ${archs} " != *" x86_64 "* ]]; then
-    printf "Error: %s is not an executable for Intel Macs.\n" "${CHECK_FILE}"
-    how_to_get_binary
-    exit 1
+    error "This is not an executable for Intel Macs:" \
+          "${CHECK_FILE}"
+    return 1
   fi
   if [[ " ${archs} " != *" arm64e "* ]]; then
-    printf "Error: %s contains x86_64 only. This looks like the broken binary\n" "${CHECK_FILE}"
-    echo "of an OCLP-patched Mac. A clean one is universal (x86_64 arm64e)."
-    how_to_get_binary
-    exit 1
+    error "This binary contains x86_64 only:" \
+          "${CHECK_FILE}" \
+          "It looks like the broken binary of an OCLP-patched Mac." \
+          "A clean one is universal (x86_64 arm64e)."
+    return 1
   fi
 }
 
 # codesign --verify fails if the binary has been modified or truncated.
 # The requirement "anchor apple" additionally demands that Apple signed it.
+# Fails if CHECK_FILE is not signed by Apple.
 check_signature() {
   if ! codesign --verify -R="anchor apple" "${CHECK_FILE}" 2>/dev/null; then
-    printf "Error: %s does not carry a valid Apple code signature.\n" "${CHECK_FILE}"
-    how_to_get_binary
-    exit 1
+    error "This binary does not carry a valid Apple code signature:" \
+          "${CHECK_FILE}"
+    return 1
   fi
 }
 
 # cmp -s compares both files byte by byte without any output,
-# exit code 0 means that they are identical. --force (FORCE=1) installs it anyway.
-# A binary given by --check <path> is diagnosed only, so being identical is fine.
-# -ef is true if both paths refer to the same file, e.g. --check /usr/sbin.
+# exit code 0 means that they are identical. Being identical is an error
+# for --install only, unless --force (FORCE=1) installs it anyway.
+# -ef is true if both paths refer to the same file. Sets IDENTICAL to 1
+# if the binary is identical to the installed one.
 check_not_installed() {
-  if [ ${CHECK_PATH_GIVEN} -eq 1 ]; then
-    if [[ ! "${CHECK_FILE}" -ef /usr/sbin/screencapture ]] && cmp -s "${CHECK_FILE}" /usr/sbin/screencapture; then
-      printf "Note: %s is identical to the installed /usr/sbin/screencapture.\n" "${CHECK_FILE}"
-    fi
+  IDENTICAL=0
+  if [[ "${CHECK_FILE}" -ef "${INSTALLED}" ]] || ! cmp -s "${CHECK_FILE}" "${INSTALLED}"; then
     return
   fi
+  IDENTICAL=1
 
-  if cmp -s "${CHECK_FILE}" /usr/sbin/screencapture; then
-    if [ ${FORCE} -eq 1 ]; then
-      printf "Warning: %s is identical to the installed /usr/sbin/screencapture.\n" "${CHECK_FILE}"
-      echo "         Installing it anyway because of --force."
-      return
-    fi
-    printf "Error: %s is identical to the installed /usr/sbin/screencapture.\n" "${CHECK_FILE}"
-    echo "Either the fix has already been applied or the binary has been taken from this Mac."
-    echo "Use --force to install it anyway."
+  if [ "${MODE}" != "install" ]; then
+    note "The binary is identical to the installed ${INSTALLED}," \
+         "so no fix is necessary."
+  elif [ ${FORCE} -eq 1 ]; then
+    warning "The binary is identical to the installed ${INSTALLED}." \
+            "Installing it anyway because of --force."
+  else
+    error "The binary is identical to the installed ${INSTALLED}." \
+          "Either the fix has been applied already, or the binary has been" \
+          "taken from this Mac. Use --force to install it anyway."
     exit 1
   fi
 }
 
-# Compares the SHA-256 checksum with the known clean binaries (see FAQs in the README).
+# Sets CHECKSUM to the SHA-256 checksum of CHECK_FILE, BINARY_VERSION to the
+# macOS version of a known clean binary (see FAQs in the README), and
+# VERSION_MATCHES to 1 if that version is the one of this Mac.
 # shasum prints "<checksum>  <file>", %% * keeps the checksum only.
-# An unknown checksum is not an error, because newer macOS versions ship other binaries.
-check_checksum() {
-  local checksum osVersion binaryVersion=""
-  local versionMatches=0
-
-  checksum="$(shasum -a 256 "${CHECK_FILE}")"
-  checksum="${checksum%% *}"
-  osVersion="$(sw_vers -productVersion)"
-  echo "SHA-256       : ${checksum}"
-  echo "macOS version : ${osVersion}"
-  case "${checksum}" in
+lookup_checksum() {
+  CHECKSUM="$(shasum -a 256 "${CHECK_FILE}")"
+  CHECKSUM="${CHECKSUM%% *}"
+  BINARY_VERSION=""
+  VERSION_MATCHES=0
+  case "${CHECKSUM}" in
     e668501ed8406aebcc3572a9b349553a27d429d0acfe26a5b364c2290ea8013d)
-      binaryVersion="15.7.4 - 15.7.7"
-      [[ "${osVersion}" == 15.7.[4-7] ]] && versionMatches=1
+      BINARY_VERSION="15.7.4 - 15.7.7"
+      [[ "${OS_VERSION}" == 15.7.[4-7] ]] && VERSION_MATCHES=1
       ;;
     15f8ae56fbbe2e51c8ccfd04406e47fc619bd78ec364489585757b2b09471e1b)
-      binaryVersion="15.8"
-      [[ "${osVersion}" == 15.8 || "${osVersion}" == 15.8.* ]] && versionMatches=1
+      BINARY_VERSION="15.8"
+      [[ "${OS_VERSION}" == 15.8 || "${OS_VERSION}" == 15.8.* ]] && VERSION_MATCHES=1
       ;;
   esac
-  if [ -z "${binaryVersion}" ]; then
-    echo "Warning: Unknown SHA-256 checksum. Make sure the binary comes from macOS ${osVersion}."
-  elif [ ${versionMatches} -eq 0 ]; then
-    echo "Warning: The binary is from macOS ${binaryVersion}, but this is macOS ${osVersion}."
+}
+
+# Prints the checksum and whether it belongs to the macOS version of this Mac.
+# An unknown checksum is not an error, because newer macOS versions ship other binaries.
+check_checksum() {
+  lookup_checksum
+  status "SHA-256" "${CHECKSUM}"
+  status "macOS" "${OS_VERSION}"
+  if [ -z "${BINARY_VERSION}" ]; then
+    warning "Unknown SHA-256 checksum." \
+            "Make sure the binary comes from macOS ${OS_VERSION}."
+  elif [ ${VERSION_MATCHES} -eq 0 ]; then
+    warning "The binary is from macOS ${BINARY_VERSION}, but this is macOS ${OS_VERSION}."
   else
-    echo "The binary is the clean screencapture from macOS ${binaryVersion}."
+    echo "The binary is the clean screencapture from macOS ${BINARY_VERSION}."
   fi
 }
 
@@ -413,16 +513,88 @@ check_checksum() {
 # but with fully enabled SIP the system volume can't be mounted writable.
 check_sip() {
   if [[ "$(csrutil status 2>/dev/null)" == *"status: enabled."* ]]; then
-    echo "Warning: System Integrity Protection (SIP) is enabled. Patching will most likely fail."
+    warning "System Integrity Protection (SIP) is enabled." \
+            "Patching will most likely fail."
   fi
 }
 
+# Validates CHECK_FILE as the clean binary and exits if it is not suitable.
 validate_binary() {
-  check_architectures
-  check_signature
+  if ! check_architectures || ! check_signature; then
+    how_to_get_binary
+    exit 1
+  fi
   check_not_installed
   check_checksum
   check_sip
+}
+
+# Prints the status of the payload embedded in the script.
+# The checks run silently, their results are summarized in a few lines.
+# Succeeds if the payload is suitable for this Mac.
+payload_status() {
+  local suitable=0
+  local -a lines
+
+  if ! has_payload; then
+    status "Payload" "none"
+    return 1
+  fi
+
+  extract_payload
+  CHECK_FILE="${PAYLOAD_BINARY}"
+  if ! check_architectures &> /dev/null; then
+    status "Payload" "not a clean screencapture binary," \
+                     "it does not contain both x86_64 and arm64e."
+    return 1
+  fi
+  if ! check_signature &> /dev/null; then
+    status "Payload" "not a clean screencapture binary," \
+                     "it does not carry a valid Apple code signature."
+    return 1
+  fi
+
+  lookup_checksum
+  if [ -z "${BINARY_VERSION}" ]; then
+    lines=( "clean screencapture from an unknown macOS version" )
+    suitable=1
+  elif [ ${VERSION_MATCHES} -eq 1 ]; then
+    lines=( "clean screencapture from macOS ${BINARY_VERSION}" )
+    suitable=1
+  else
+    lines=( "clean screencapture from macOS ${BINARY_VERSION}," \
+            "but this Mac runs macOS ${OS_VERSION}" )
+  fi
+  if cmp -s "${CHECK_FILE}" "${INSTALLED}"; then
+    lines+=( "It is installed already." )
+  fi
+  status "Payload" "${lines[@]}"
+
+  if [ ${suitable} -eq 1 ]; then
+    install_hint
+    return 0
+  fi
+  return 1
+}
+
+# Checks whether the installed screencapture is broken, i.e. whether
+# a fix is necessary, and exits with 0 if not, otherwise with 1.
+check_installed() {
+  CHECK_FILE="${INSTALLED}"
+  status "Binary" "${CHECK_FILE}"
+
+  if check_architectures && check_signature; then
+    check_checksum
+    echo "No fix necessary, ${INSTALLED} is a clean binary."
+    exit 0
+  fi
+
+  echo "A fix is necessary, ${INSTALLED} is broken."
+  check_sip
+  if ! payload_status; then
+    how_to_get_binary
+  fi
+  exit 1
 }
 
 # ---------------------------------------------------------------------------
@@ -446,10 +618,10 @@ find_system_volume() {
   containerDisk="${line##*:}"
   containerDisk="${containerDisk##* }"
   if [ -z "$containerDisk" ]; then
-    echo "Error: Could not determine the APFS container disk. Aborting."
+    error "Could not determine the APFS container disk. Aborting."
     exit 1
   fi
-  echo "APFS container: /dev/${containerDisk}"
+  status "Container" "/dev/${containerDisk}"
 
   # Identify the System-Volume from the APFS Snapshot entry in that container.
   # The snapshot device (e.g. "disk1s4s1") minus the trailing "s<n>" gives
@@ -462,7 +634,7 @@ find_system_volume() {
   #
   line="$(diskutil list /dev/${containerDisk} | grep "APFS Snapshot")"
   if [ -z "$line" ]; then
-    echo "Error: No APFS Snapshot found on /dev/${containerDisk}. Aborting."
+    error "No APFS Snapshot found on /dev/${containerDisk}. Aborting."
     exit 1
   fi
 
@@ -470,8 +642,8 @@ find_system_volume() {
   snapshotDisk="disk${temp%% *}"          # e.g. disk1s4s1
   SYSTEM_DISK="${snapshotDisk%s[0-9]*}"   # strip trailing "s<n>" -> e.g. disk1s4
 
-  echo "APFS Snapshot : /dev/${snapshotDisk}"
-  echo "System Volume : /dev/${SYSTEM_DISK}"
+  status "Snapshot" "/dev/${snapshotDisk}"
+  status "System" "/dev/${SYSTEM_DISK}"
 }
 
 # Mounts the SYSTEM_DISK writable to MOUNTPOINT.
@@ -480,7 +652,7 @@ mount_system_volume() {
   mkdir -p "${MOUNTPOINT}"
 
   if ! mount -o nobrowse -t apfs /dev/${SYSTEM_DISK} "${MOUNTPOINT}"; then
-    echo "Error: Mounting /dev/${SYSTEM_DISK} failed. Reboot first and try again."
+    error "Mounting /dev/${SYSTEM_DISK} failed. Reboot first and try again."
     rmdir "${MOUNTPOINT}"
     exit 1
   fi
@@ -498,17 +670,17 @@ restore_original() {
   mv "${MOUNTPOINT}/usr/sbin/screencapture.old" "${MOUNTPOINT}/usr/sbin/screencapture"
 }
 
-# Backs up the old file and copies the new one.
+# Backs up the old file and copies the new one (CHECK_FILE).
 replace_binary() {
   if ! mv "${MOUNTPOINT}/usr/sbin/screencapture" "${MOUNTPOINT}/usr/sbin/screencapture.old"; then
-    echo "Error: Could not back up the original screencapture binary."
+    error "Could not back up the original screencapture binary."
     abort_patch
   fi
 
   # -X skips extended attributes, so e.g. the quarantine flag of a binary
   # received by AirDrop or a browser download doesn't end up on the system volume.
-  if ! cp -fX "${BINARY}" "${MOUNTPOINT}/usr/sbin/screencapture"; then
-    echo "Error: Could not copy new screencapture binary. Restoring original."
+  if ! cp -fX "${CHECK_FILE}" "${MOUNTPOINT}/usr/sbin/screencapture"; then
+    error "Could not copy the new screencapture binary. Restoring the original."
     restore_original
     abort_patch
   fi
@@ -522,7 +694,7 @@ replace_binary() {
 # Makes the changes persistent by blessing a new snapshot.
 bless_snapshot() {
   if ! bless --folder "${MOUNTPOINT}/System/Library/CoreServices" --bootefi --create-snapshot; then
-    echo "Error: bless failed. Restoring original screencapture binary."
+    error "bless failed. Restoring the original screencapture binary."
     restore_original
     abort_patch
   fi
@@ -531,7 +703,9 @@ bless_snapshot() {
 # Unmounts the system volume and removes the mount point.
 unmount_system_volume() {
   if ! umount "${MOUNTPOINT}"; then
-    echo "Warning: Unmounting ${MOUNTPOINT} failed. Please unmount manually before rebooting."
+    warning "Unmounting failed:" \
+            "${MOUNTPOINT}" \
+            "Please unmount it manually before rebooting."
   else
     rmdir "${MOUNTPOINT}"
   fi
@@ -547,40 +721,57 @@ reboot_system() {
 # Main
 # ---------------------------------------------------------------------------
 
-main() {
-  # --check only locates and validates the screencapture binary and exits
-  # before the system volume is touched. That does not require root.
-  # --check <path> validates the binary at path instead, e.g. /usr/sbin.
-  # --get <dir> does the same, but extracts the binary from a macOS installer first.
-  # --force installs the binary even if it is identical to the installed one.
-  local checkOnly=0 checkPath="" getDir=""
-  FORCE=0
+# Prints the usage of the option $1 that lacks its argument and exits.
+# $2 is the name of the argument, $3 its description, $4 an example.
+missing_argument() {
+  echo "Usage: ${SCRIPT} $1 <$2>"
+  echo "  <$2> is $3, e.g."
+  echo "  ${SCRIPT} $1 $4"
+  exit 1
+}
 
-  # The options can be combined, shift drops the option that has been processed
+# Sets MODE to the action $1, only one action can be given.
+set_mode() {
+  if [[ -n "${MODE}" && "${MODE}" != "$1" ]]; then
+    error "--install, --check and --get can't be combined."
+    exit 1
+  fi
+  MODE="$1"
+}
+
+main() {
+  local getDir=""
+
+  # The options can be combined, shift drops the option that has been processed.
+  # An argument that starts with - is the next option, not the missing argument.
   while [ $# -gt 0 ]; do
     case "$1" in
       -h|--help)
         usage
         exit 0
         ;;
+      -i|--install)
+        set_mode install
+        ;;
       -c|--check)
-        checkOnly=1
-        # the path is optional, a following option such as -f is not a path
-        if [[ -n "$2" && "$2" != -* ]]; then
-          checkPath="$2"
-          shift
-        fi
+        set_mode check
         ;;
       -g|--get)
-        # a following option such as -f is not a directory
         if [[ -z "$2" || "$2" == -* ]]; then
-          echo "Usage: ${SCRIPT} $1 <dir>"
-          echo "  <dir> is a USB stick with a macOS installer or the installer app itself, e.g."
-          echo "  ${SCRIPT} $1 \"/Volumes/Install macOS Sequoia\""
-          exit 1
+          missing_argument "$1" "dir" \
+            "a USB stick with a macOS installer or the installer app itself" \
+            "\"/Volumes/Install macOS Sequoia\""
         fi
-        checkOnly=1
+        set_mode get
         getDir="$2"
+        shift
+        ;;
+      -p|--payload)
+        if [[ -z "$2" || "$2" == -* ]]; then
+          missing_argument "$1" "file" "a clean screencapture binary" \
+            "~/Desktop/screencapture"
+        fi
+        PAYLOAD_FILE="$2"
         shift
         ;;
       -f|--force)
@@ -595,35 +786,60 @@ main() {
     shift
   done
 
-  if [[ -n "${checkPath}" && -n "${getDir}" ]]; then
-    echo "Error: --check <path> can't be combined with --get."
+  case "${MODE}" in
+    "")
+      # Without any action show the help and whether the payload is suitable
+      usage
+      echo
+      payload_status
+      exit 0
+      ;;
+    check)
+      # --check finds out whether a fix is necessary,
+      # --check -p <file> whether <file> is a clean binary
+      if [ -z "${PAYLOAD_FILE}" ]; then
+        check_installed
+      fi
+      use_payload_file
+      validate_binary
+      echo "Check passed."
+      if [ ${IDENTICAL} -eq 0 ]; then
+        install_hint "${PAYLOAD_FILE}"
+      fi
+      exit 0
+      ;;
+    get)
+      if [ -n "${PAYLOAD_FILE}" ]; then
+        error "--get can't be combined with --payload."
+        exit 1
+      fi
+      get_from_installer "${getDir}"
+      CHECK_FILE="${BINARY}"
+      status "Binary" "${CHECK_FILE}"
+      validate_binary
+      echo "Check passed."
+      # --install prefers the payload, so name the extracted binary if there is one
+      if [ ${IDENTICAL} -eq 1 ]; then
+        :
+      elif has_payload; then
+        install_hint "${BINARY}"
+      else
+        install_hint
+      fi
+      exit 0
+      ;;
+  esac
+
+  # --install
+  if [[ $UID != 0 ]]; then
+    error "--install must be run as root, e.g." \
+          "sudo ${SCRIPT} --install"
+    echo "Tip: Run it with --check first to find out whether a fix is necessary."
     exit 1
   fi
 
-  # Diagnose the binary at path only, nothing else is done
-  if [ -n "${checkPath}" ]; then
-    resolve_check_path "${checkPath}"
-    validate_binary
-    echo "Check passed. ${CHECK_FILE} looks like a clean screencapture binary."
-    exit 0
-  fi
-
-  if [[ ${checkOnly} == 0 && $UID != 0 ]]; then
-    echo "This script must be run as root."
-    echo "Tip: run it with --check first to validate your screencapture binary without root."
-    exit 1
-  fi
-
-  if [ -n "${getDir}" ]; then
-    get_from_installer "${getDir}"
-  fi
-  locate_binary
+  select_binary
   validate_binary
-
-  if [ ${checkOnly} -eq 1 ]; then
-    echo "Check passed. Run the script with sudo and without any option to apply the fix."
-    exit 0
-  fi
 
   find_system_volume
   mount_system_volume
@@ -632,6 +848,10 @@ main() {
   unmount_system_volume
   reboot_system
 }
+
+# The payload extracted to a temporary folder is removed when the script exits
+trap cleanup_payload EXIT
+trap 'cleanup_payload; exit 130' INT TERM
 
 main "$@"
 

@@ -7,7 +7,7 @@ See my [blog](https://loefflmann.blogspot.com/2026/03/how-i-fixed-sequoias-scree
 
 ## Prerequisites
 
-- macOS Sequoia (15.7.4 - 15.8) installed on a MacBook Pro (Model ID MacBookPro8,1) using OCLP 2.4.1 or OCLP 2.5
+- macOS Sequoia (15.7.4 - 15.8.1) installed on a MacBook Pro (Model ID MacBookPro8,1) using OCLP 2.4.1, OCLP 2.5 or OCLP 2.5.1
 - System Integrity Protection (SIP) disabled, as configured by OCLP
 - a clean `screencapture` binary from macOS Sequoia 15.7.4 or later, see [How to get a clean screencapture binary](#how-to-get-a-clean-screencapture-binary)
 - this script
@@ -49,6 +49,11 @@ On the second Mac, open the Terminal and
 5. transfer the file to the Mac that you want to fix, e.g. by USB stick, AirDrop or a network share.
    Store it next to `screencapture-fix.sh` (see below), and make sure it is named exactly `screencapture`:
    don't rename it, and don't leave it zipped.
+   Alternatively, keep it wherever you like and pass it to the script with `-p <file>`.
+6. let the script check the binary on the Mac that you want to fix
+   ```
+   % ./screencapture-fix.sh --check -p ./screencapture
+   ```
 
 ### Extract it from a macOS Sequoia installer
 
@@ -61,20 +66,23 @@ With the option `--get`, the script extracts the binary from the installer and s
 3. run
    ```
    % ./screencapture-fix.sh --get "/Volumes/Install macOS Sequoia"
-   Installer     : /Volumes/Install macOS Sequoia/Install macOS Sequoia.app
+   Installer : /Volumes/Install macOS Sequoia/Install macOS Sequoia.app
    Mounting SharedSupport.dmg (read-only)
-   Installer for : macOS 15.8 (24H23)
+   Release   : macOS 15.8 (24H23)
    Searching for usr/sbin/screencapture, this can take several minutes ...
    Searching payload.036
-   Found usr/sbin/screencapture in payload.036
-   Architectures : x86_64 arm64e
+   Found     : usr/sbin/screencapture in payload.036
+   Binary    : /Users/you/screencapture-fix/screencapture
+   Archs     : x86_64 arm64e
    ...
-   Check passed. Run the script with sudo and without any option to apply the fix.
+   Check passed.
+   Install it with:
+     sudo ./screencapture-fix.sh --install
    ```
 
 Instead of the USB stick you can also pass an `Install macOS Sequoia.app`, e.g. one that has been downloaded to `/Applications`.
 The installer is mounted read-only, so it remains unchanged. Root is not required, and `--get` doesn't patch anything.
-It just extracts the binary and checks it the same way as `--check` does.
+It just extracts the binary and checks it the same way as `--check -p` does.
 
 Use an installer of the same macOS version as the Mac that you want to fix. The script warns you if the versions differ.
 
@@ -102,36 +110,47 @@ screencapture		screencapture-fix.sh
 > Use at your own risk.
 > This script modifies system files located in `/usr/sbin/`. While this fix has been tested on MacBookPro8,1 running macOS Sequoia via OCLP, always ensure you have a current backup of your data before modifying system-level binaries. The author is not responsible for any system instability or data loss.
 
-First, let the script check your `screencapture` binary. This doesn't change anything on your system, and it doesn't require root:
+Without any option, the script shows its help, and whether a suitable binary is embedded in the script (see [Advanced Usage](#advanced-usage)).
+None of the options below except `--install` changes anything on your system, and only `--install` requires root.
+
+### Is my screencapture broken?
+
+Find out whether a fix is necessary at all, e.g. after a fresh installation or after reapplying the OCLP root patches:
 
 ```
 % ./screencapture-fix.sh --check
 ```
 
+The script checks the installed `/usr/sbin/screencapture` and tells you whether it is broken.
+
+### Check the clean binary
+
+Let the script check the clean binary before you install it:
+
+```
+% ./screencapture-fix.sh --check -p ./screencapture
+```
+
+This also works for the binary of the system on another volume, e.g. `./screencapture-fix.sh --check -p "/Volumes/Macintosh HD/usr/sbin/screencapture"`.
+
+### Apply the fix
+
 If the check has passed, fix the broken screencapture on an OCLP patched MacBookPro8,1 by running
 
 ```
-% sudo ./screencapture-fix.sh
+% sudo ./screencapture-fix.sh --install
 ```
 
-The script replaces `/usr/sbin/screencapture` with the binary located in the same folder as the script.
+The script replaces `/usr/sbin/screencapture` with the clean binary and reboots. It takes the clean binary from
+1. the file given by `-p <file>`, e.g. `sudo ./screencapture-fix.sh --install -p ~/Desktop/screencapture`,
+2. otherwise from the payload embedded in the script (see [Advanced Usage](#advanced-usage)),
+3. otherwise from the file `screencapture` next to the script.
+
 It refuses binaries which are not suitable (e.g. a broken `x86_64`-only binary) before it touches the system volume.
 Reapplying OCLP root patches in the future will likely overwrite the fix.
 Run the script as often as needed.
 
-### Is my screencapture broken?
-
-Pass a file or a folder to `--check` to find out whether a screencapture binary is broken,
-e.g. after a fresh installation or after reapplying the OCLP root patches:
-
-```
-% ./screencapture-fix.sh --check /usr/sbin
-```
-
-This also works for the system on another volume, e.g. `./screencapture-fix.sh --check "/Volumes/Macintosh HD/usr/sbin"`.
-Nothing is changed, and root is not required.
-
-To see a description of the script and all available options (`-c`/`--check [path]`, `-g`/`--get <dir>`, `-f`/`--force`, `-h`/`--help`), run
+To see a description of the script and all available options (`-i`/`--install`, `-c`/`--check`, `-g`/`--get <dir>`, `-p`/`--payload <file>`, `-f`/`--force`, `-h`/`--help`), run
 
 ```
 % ./screencapture-fix.sh --help
@@ -147,7 +166,18 @@ Compressing the payload with bzip2 makes the file considerably smaller.
 % chmod +x ./screencapture-fix-with-payload.sh
 ```
 An uncompressed payload (`cat ./screencapture-fix.sh ./screencapture > ./screencapture-fix-with-payload.sh`) works as well.
-If you run `screencapture-fix-with-payload.sh`, the script extracts its payload and saves `screencapture` if it is not found in the script's working directory.
+
+Run the script without any option to see whether the payload is suitable for your Mac:
+```
+% ./screencapture-fix-with-payload.sh
+...
+Payload   : clean screencapture from macOS 15.8
+Install it with:
+  sudo ./screencapture-fix-with-payload.sh --install
+```
+
+`--install` uses the payload unless you pass another binary with `-p <file>`.
+The payload is extracted to a temporary folder, which is removed when the script exits.
 
 > [!WARNING]
 > You should not publish the script with an embedded `screencapture` binary because that would violate Apple's license terms.
@@ -179,31 +209,31 @@ Yes, just boot from the volume that you want to patch. The script identifies the
 
 The script is not executable, because downloads don't keep the executable flag. Run `chmod +x screencapture-fix.sh`.
 
-### "screencapture binary not found" and "The screencapture binary is also not appended to the script."
+### "No clean screencapture binary found."
 
-There is no file called `screencapture` in the folder of the script.
+`--install` found neither a payload embedded in the script nor a file called `screencapture` in the folder of the script, and no `-p <file>` has been given.
 Follow the steps in [How to get a clean screencapture binary](#how-to-get-a-clean-screencapture-binary).
 If the script lists a file like `screencapture copy` or `screencapture.zip`, unzip or rename it to `screencapture`.
 
-### "... contains x86_64 only. This looks like the broken binary ..."
+### "This binary contains x86_64 only ... It looks like the broken binary ..."
 
 The binary has been copied from an affected Mac, probably from the one that you want to fix.
 Take it from another Mac, see [How to get a clean screencapture binary](#how-to-get-a-clean-screencapture-binary).
 
-### "... is identical to the installed /usr/sbin/screencapture."
+### "The binary is identical to the installed /usr/sbin/screencapture."
 
-The fix has already been applied. If you want to install the binary again anyway, run `sudo ./screencapture-fix.sh --force`.
+The fix has already been applied. If you want to install the binary again anyway, run `sudo ./screencapture-fix.sh --install --force`.
 
 ### "Extracting the payload failed."
 
 The payload appended to the script is truncated or corrupted. Create the single file again as described in [Advanced Usage](#advanced-usage).
 
-### "Expected exactly one "Install macOS *.app" in ..."
+### "Expected exactly one "Install macOS *.app", but found 0 in ..."
 
 `--get` expects either the folder that contains the installer (e.g. the root of the USB stick) or the installer app itself.
 Check the name of the USB stick in the Finder or with `ls /Volumes`.
 
-### "... SharedSupport.dmg not found."
+### "Not found: .../SharedSupport.dmg"
 
 The installer app is an install stub only, which downloads the actual installer when it runs.
 Use the USB stick created by OCLP, or a full installer instead.

@@ -36,10 +36,11 @@ On the second Mac, open the Terminal and
    ```
    % cp /usr/sbin/screencapture ~/Desktop/screencapture
    ```
-3. make sure it is a universal binary
+3. make sure it is a universal binary that contains both `x86_64` and `arm64e`
    ```
-   % lipo -archs ~/Desktop/screencapture
-   x86_64 arm64e
+   % file ~/Desktop/screencapture
+   /Users/you/Desktop/screencapture: Mach-O universal binary with 2 architectures: [x86_64:Mach-O 64-bit executable x86_64] [arm64e:Mach-O 64-bit executable arm64e]
+   ...
    ```
 4. compare its checksum with the ones listed in the [FAQs](#do-i-need-a-specific-screencapture-binary-for-my-macos)
    ```
@@ -118,6 +119,24 @@ It refuses binaries which are not suitable (e.g. a broken `x86_64`-only binary) 
 Reapplying OCLP root patches in the future will likely overwrite the fix.
 Run the script as often as needed.
 
+### Is my screencapture broken?
+
+Pass a file or a folder to `--check` to find out whether a screencapture binary is broken,
+e.g. after a fresh installation or after reapplying the OCLP root patches:
+
+```
+% ./screencapture-fix.sh --check /usr/sbin
+```
+
+This also works for the system on another volume, e.g. `./screencapture-fix.sh --check "/Volumes/Macintosh HD/usr/sbin"`.
+Nothing is changed, and root is not required.
+
+To see a description of the script and all available options (`-c`/`--check [path]`, `-g`/`--get <dir>`, `-f`/`--force`, `-h`/`--help`), run
+
+```
+% ./screencapture-fix.sh --help
+```
+
 ## Advanced Usage
 
 You can also append the screencapture binary to the script as its payload to make a single file.
@@ -170,6 +189,10 @@ If the script lists a file like `screencapture copy` or `screencapture.zip`, unz
 
 The binary has been copied from an affected Mac, probably from the one that you want to fix.
 Take it from another Mac, see [How to get a clean screencapture binary](#how-to-get-a-clean-screencapture-binary).
+
+### "... is identical to the installed /usr/sbin/screencapture."
+
+The fix has already been applied. If you want to install the binary again anyway, run `sudo ./screencapture-fix.sh --force`.
 
 ### "Extracting the payload failed."
 

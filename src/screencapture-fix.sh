@@ -93,10 +93,12 @@ Options:
   -g, --get <dir>       extract screencapture from a macOS installer, e.g.
                         from the USB stick created by OCLP, to the folder of
                         the script and validate it, don't change anything else
+  -x, --extract         extract the payload embedded in the script to the
+                        folder of the script, or to <file> given by -p
   -p, --payload <file>  use <file> as the clean binary instead of the payload
-                        embedded in the script
+                        embedded in the script, with -x the destination
   -f, --force           install the clean binary even if it is installed
-                        already
+                        already, with -x overwrite an existing file
   -h, --help            show this help
   -v, --version         show the version
 
@@ -110,6 +112,7 @@ Examples:
   ./${SCRIPT:t} --check -p ~/Desktop/screencapture
   sudo ./${SCRIPT:t} --install
   sudo ./${SCRIPT:t} --install -p ~/Desktop/screencapture
+  ./${SCRIPT:t} --extract -p ~/Desktop/screencapture
 
 More information: ${PROJECT_URL}
 EOF
@@ -358,6 +361,41 @@ extract_payload() {
     exit 1
   fi
   chmod 755 "${PAYLOAD_BINARY}"
+}
+
+# Extracts the payload appended to the script to $1 and sets CHECK_FILE.
+# $1 is either the destination file or an existing folder, which gets the
+# file "screencapture". %/ strips a trailing slash. An existing file is
+# overwritten with --force (FORCE=1) only.
+extract_to() {
+  local destination="${1%/}"
+
+  if ! has_payload; then
+    error "There is no payload embedded in the script."
+    exit 1
+  fi
+  if [ -d "${destination}" ]; then
+    destination="${destination}/screencapture"
+  fi
+  if [[ -e "${destination}" && ${FORCE} -eq 0 ]]; then
+    error "The file exists already:" \
+          "${destination}" \
+          "Use --force to overwrite it."
+    exit 1
+  fi
+
+  extract_payload
+  # -X skips extended attributes, -f overwrites an existing file
+  if ! cp -fX "${PAYLOAD_BINARY}" "${destination}" 2> /dev/null; then
+    error "Could not copy the payload to" \
+          "${destination}"
+    exit 1
+  fi
+  chmod 755 "${destination}"
+  echo "Extracted the payload to"
+  echo "  ${destination}"
+  CHECK_FILE="${destination}"
+  status "Binary" "${CHECK_FILE}"
 }
 
 # Sets CHECK_FILE to the clean binary that is going to be installed:
@@ -736,7 +774,7 @@ missing_argument() {
 # Sets MODE to the action $1, only one action can be given.
 set_mode() {
   if [[ -n "${MODE}" && "${MODE}" != "$1" ]]; then
-    error "--install, --check and --get can't be combined."
+    error "--install, --check, --get and --extract can't be combined."
     exit 1
   fi
   MODE="$1"
@@ -759,6 +797,9 @@ main() {
         ;;
       -i|--install)
         set_mode install
+        ;;
+      -x|--extract)
+        set_mode extract
         ;;
       -c|--check)
         set_mode check
@@ -833,6 +874,14 @@ main() {
       else
         install_hint
       fi
+      exit 0
+      ;;
+    extract)
+      # -p is the destination here, by default it is the folder of the script.
+      # --install uses the payload by itself, so there is no install hint.
+      extract_to "${PAYLOAD_FILE:-${BINARY}}"
+      validate_binary
+      echo "Check passed."
       exit 0
       ;;
   esac

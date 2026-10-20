@@ -19,6 +19,7 @@
 - `-c -p <file>` checks whether `<file>` is a clean screencapture binary.
 - `-g`, `--get <dir>` extracts a clean screencapture from a macOS Sequoia installer, e.g. from the USB stick created by OCLP,
   or from an `Install macOS Sequoia.app`. The installer is mounted read-only and remains unchanged (#2).
+- `-x`, `--extract` extracts the payload embedded in the script to a file, `-p` sets the destination.
 - `-p`, `--payload <file>` uses `<file>` as the clean binary and ignores an embedded payload.
 - `-f`, `--force` installs the clean binary even if it is identical to the installed one.
 - `-h`, `--help` shows a description of the script and all available options.

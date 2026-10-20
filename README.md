@@ -150,7 +150,7 @@ It refuses binaries which are not suitable (e.g. a broken `x86_64`-only binary) 
 Reapplying OCLP root patches in the future will likely overwrite the fix.
 Run the script as often as needed.
 
-To see a description of the script and all available options (`-i`/`--install`, `-c`/`--check`, `-g`/`--get <dir>`, `-p`/`--payload <file>`, `-f`/`--force`, `-h`/`--help`, `-v`/`--version`), run
+To see a description of the script and all available options (`-i`/`--install`, `-c`/`--check`, `-g`/`--get <dir>`, `-x`/`--extract`, `-p`/`--payload <file>`, `-f`/`--force`, `-h`/`--help`, `-v`/`--version`), run
 
 ```
 % ./screencapture-fix.sh --help
@@ -178,6 +178,13 @@ Install it with:
 
 `--install` uses the payload unless you pass another binary with `-p <file>`.
 The payload is extracted to a temporary folder, which is removed when the script exits.
+
+To get the payload back as a file, e.g. to check it separately, extract it with `--extract`:
+```
+% ./screencapture-fix-with-payload.sh --extract -p ~/Desktop/screencapture
+```
+`-p` sets the destination, which can also be a folder. Without `-p`, the file `screencapture` is created next to the script.
+An existing file is overwritten with `--force` only.
 
 > [!WARNING]
 > You should not publish the script with an embedded `screencapture` binary because that would violate Apple's license terms.

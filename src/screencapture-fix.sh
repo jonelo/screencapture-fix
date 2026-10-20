@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-# screencapture-fix
+# screencapture-fix 2.0.0
 # Fixes a broken screencapture on an OCLP-patched MacBookPro8,1 running
 # macOS Sequoia by replacing /usr/sbin/screencapture with a clean binary.
 # https://github.com/jonelo/screencapture-fix
@@ -8,6 +8,8 @@
 PATH="/sbin:/usr/sbin:/bin:/usr/bin"
 
 PROJECT_URL="https://github.com/jonelo/screencapture-fix"
+# The version of the script, see RELEASE_NOTES.md
+VERSION="2.0.0"
 
 # Inside a zsh function $0 is the name of the function, so keep the script's path
 SCRIPT="$0"
@@ -75,7 +77,7 @@ status() {
 
 usage() {
   cat << EOF
-screencapture-fix - fixes a broken screencapture on an OCLP-patched
+screencapture-fix ${VERSION} - fixes a broken screencapture on an OCLP-patched
 MacBookPro8,1 running macOS Sequoia by replacing /usr/sbin/screencapture
 with a clean binary.
 
@@ -96,6 +98,7 @@ Options:
   -f, --force           install the clean binary even if it is installed
                         already
   -h, --help            show this help
+  -v, --version         show the version
 
 The clean binary is taken from -p <file>, otherwise from the payload
 embedded in the script, otherwise from the file "screencapture" next to
@@ -748,6 +751,10 @@ main() {
     case "$1" in
       -h|--help)
         usage
+        exit 0
+        ;;
+      -v|--version)
+        echo "screencapture-fix ${VERSION}"
         exit 0
         ;;
       -i|--install)

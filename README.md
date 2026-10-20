@@ -150,7 +150,7 @@ It refuses binaries which are not suitable (e.g. a broken `x86_64`-only binary) 
 Reapplying OCLP root patches in the future will likely overwrite the fix.
 Run the script as often as needed.
 
-To see a description of the script and all available options (`-i`/`--install`, `-c`/`--check`, `-g`/`--get <dir>`, `-p`/`--payload <file>`, `-f`/`--force`, `-h`/`--help`), run
+To see a description of the script and all available options (`-i`/`--install`, `-c`/`--check`, `-g`/`--get <dir>`, `-p`/`--payload <file>`, `-f`/`--force`, `-h`/`--help`, `-v`/`--version`), run
 
 ```
 % ./screencapture-fix.sh --help
